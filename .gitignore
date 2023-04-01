@@ -1,3 +1,4 @@
-./data
+.data/
+.calc
 .ipynb_checkpoints/
 .DS_Store
