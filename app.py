@@ -21,6 +21,22 @@ orix_url = "https://baseballdata.jp/11/ctop.html"
 hawks_url = "https://baseballdata.jp/12/ctop.html"
 eagles_url = "https://baseballdata.jp/376/ctop.html"
 
+team_dic = {
+        '読売ジャイアンツ':  giants_url ,  
+        '東京ヤクルトスワローズ': swallows_url, 
+        '横浜DeNAベイスターズ': dena_url, 
+        '中日ドラゴンズ': dragons_url, 
+        '阪神タイガース': tigers_url, 
+        '広島東洋カープ': carp_url,
+                           
+        '埼玉西武ライオンズ': lions_url, 
+        '北海道日本ハムファイターズ': fighters_url, 
+        '千葉ロッテマリーンズ': lotte_url, 
+        'オリックス・バファローズ': orix_url, 
+        '福岡ソフトバンクホークス': hawks_url, 
+        '東北楽天ゴールデンイーグルス': eagles_url
+    }
+
 # dateで受け取った日に開催された各試合の出場成績のリンクをリスト形式で返す
 def get_top_links(date):
     params = { 'date': date }
@@ -57,18 +73,16 @@ def data_generate(URL, debug=False):
     df.columns = title
     team = df.iloc[0]["球団"]
         
-    # データの型をobject型からint、またはfloat型に変換する
-    for i in ["打点", "本塁打", "安打数", "単打", "2塁打", "3塁打", "得点圏打数", "得点圏安打", 
-              "UC本塁打", "試合数", "打席数", "打数", "得点","四球", "死球", "企盗塁", "盗塁", 
-              "企犠打","犠打", "犠飛", "代打数", "代打安打", "併殺", "失策", "三振"]:
+    # データの型をobject型からintまたはfloat型に変換する
+    for i in ["打点", "本塁打", "安打数", "単打", "2塁打", "3塁打", "併殺", "四球", "打席数", "打数",
+              "死球", "企盗塁", "盗塁", "企犠打","犠打","犠飛",]:
         df[i] = df[i].astype("int")
 
-    for i in ["打率", "出塁率", "長打率", "最近5試合", "OPS", "得点圏打率", "UC率"]:
+    for i in ["打率"]:
         df[i] = df[i].astype("float")
 
     df["盗塁成功率"] = df["盗塁"] / df["企盗塁"]
     df["犠打成功率"] = df["犠打"] / df["企犠打"]
-    df["代打率"] = df["代打安打"] / df["代打数"]
     
     # 欠損値は0で補完
     df["盗塁成功率"].fillna(0, inplace=True)
@@ -94,7 +108,6 @@ def data_generate(URL, debug=False):
 # https://stackoverflow.com/questions/31247198/python-pandas-write-content-of-dataframe-into-text-file
 def make_df(url, players, opt):
     df, team = data_generate(url)
-
     players = {i:ind for ind, i in enumerate(players)}
     inv_players = {ind:i for ind, i in enumerate(players)}
     
@@ -110,7 +123,7 @@ def make_df(url, players, opt):
         tmp.columns = df.columns
         df = pd.concat([df, tmp], axis=0)
     
-    df = df[~df.order.isnull()].sort_values("order", ascending=True).drop('order', axis=1).reset_index(drop=True)
+    df = df[~df.order.isnull()].sort_values("order", ascending=True).drop('order', axis=1)#.reset_index(drop=True)
     
     # 値が欠損の選手の調整
     df["凡退率"].fillna(1, inplace = True)
@@ -126,25 +139,9 @@ if __name__ == "__main__":
     st.title(str(d_today)+"のプロ野球勝率予測")
 
     game_links = get_top_links(d_today)
-    team_dic = {
-        '読売ジャイアンツ':  giants_url ,  
-        '東京ヤクルトスワローズ': swallows_url, 
-        '横浜DeNAベイスターズ': dena_url, 
-        '中日ドラゴンズ': dragons_url, 
-        '阪神タイガース': tigers_url, 
-        '広島東洋カープ': carp_url,
-                           
-        '埼玉西武ライオンズ': lions_url, 
-        '北海道日本ハムファイターズ': fighters_url, 
-        '千葉ロッテマリーンズ': lotte_url, 
-        'オリックス・バファローズ': orix_url, 
-        '福岡ソフトバンクホークス': hawks_url, 
-        '東北楽天ゴールデンイーグルス': eagles_url
-    }
 
     for id_, game_link in enumerate(game_links):
         html = urllib.request.urlopen(game_link)
-    
         soup = BeautifulSoup(html, "html.parser")
 
         # 対戦チーム名
@@ -158,17 +155,22 @@ if __name__ == "__main__":
         visitor_member = [i.replace(' ', '') for i in data[11:20]]
     
         # データ生成
-        st.subheader(visitor+"vs"+home)
-
-        member_df = pd.DataFrame(visitor_member, columns = ["先攻"])
+        member_df = pd.DataFrame(visitor_member, columns = ["先攻"], index = list(range(1,10)))
         member_df["後攻"] = home_member
-        st.write(member_df)
+
         make_df(team_dic[visitor], visitor_member, "top")
         make_df(team_dic[home], home_member, "bottom")
     
         # 勝率計算
         cmd = "./calc"
-        c = subprocess.check_output(cmd).decode()
-        st.write(c)
+        output = subprocess.check_output(cmd).decode()
+        output = output.split("\n")[:2]
+        output = [visitor + output[0].split("先攻")[1],
+                  home + output[1].split("後攻")[1],]
 
-#st.write("Here is a DataFrame:")
+        # streamlit output
+        st.header(visitor+"vs"+home)
+        st.subheader("starting member")
+        st.write(member_df)
+        st.subheader("result")
+        st.write(output)

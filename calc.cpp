@@ -731,8 +731,8 @@ int main(void)
 	top_wp = calc(i, t, w, s, r1, r2, r3, b1, b2, 0);
 	bot_wp = calc(i, t, w, s, r1, r2, r3, b1, b2, 1);
 
-	printf("試合開始の先攻の勝率: %lf\n", top_wp);
-	printf("試合開始の後攻の勝率: %lf\n", bot_wp);
+	printf("先攻の勝率: %lf\n", top_wp);
+	printf("後攻の勝率: %lf\n", bot_wp);
 
 	return 0;
 }
