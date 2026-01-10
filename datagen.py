@@ -21,7 +21,7 @@ orix_url = "https://baseballdata.jp/11/ctop.html"
 hawks_url = "https://baseballdata.jp/12/ctop.html"
 eagles_url = "https://baseballdata.jp/376/ctop.html"
 
-data_path = "./data"
+data_path = "./data/"
 
 team_dic = {
         '読売ジャイアンツ':  giants_url ,  
@@ -128,26 +128,32 @@ def make_df(url, players, opt):
         tmp.columns = df.columns
         df = pd.concat([df, tmp], axis=0)
     
-    df = df[~df.order.isnull()].sort_values("order", ascending=True).drop('order', axis=1)#.reset_index(drop=True)
+    df = df[~df.order.isnull()].sort_values("order", ascending=True).drop('order', axis=1).reset_index(drop=True)
     
     # 値が欠損の選手の調整
-    df["凡退率"] = df["凡退率"].fillna(1)
+    df["凡退率"] = df["凡退率"].fillna(1.0)
     df = df.fillna(0)
         
     assert df.shape[0] == 9
     assert np.allclose(df.iloc[:,1:7].sum(axis=1), 1)
+
+    display(df)
     
     return df
 
 
 if __name__ == "__main__":
+
     if not os.path.isdir(data_path):
         os.mkdir(data_path)
     
-    d_today = datetime.date(2025,4,3)
-    game_links = get_top_links(d_today)
+    game_date = datetime.date(2025,4,3)
+    game_links = get_top_links(game_date)
 
-    for id_, game_link in enumerate(game_links):
+    if not os.path.isdir(data_path+str(game_date)):
+        os.mkdir(data_path+str(game_date))
+    
+    for game_id, game_link in enumerate(game_links):
         html = urllib.request.urlopen(game_link)
         soup = BeautifulSoup(html, "html.parser")
 
@@ -163,12 +169,12 @@ if __name__ == "__main__":
 
         print(f"home {home}, visitor {visitor}")
         if len(home_member) > 0:
+            if not os.path.isdir(data_path+str(game_date)+"/"+str(game_id)):
+                os.mkdir(data_path+str(game_date)+"/"+str(game_id))
             visitor_df = make_df(team_dic[visitor], visitor_member, "top")
             home_df = make_df(team_dic[home], home_member, "bottom")
 
-            visitor_df.to_csv(r'data/'+str(visitor)+'.txt', header=None, index=None, sep=' ', mode='w')
-            home_df.to_csv(r'data/'+str(home)+'.txt', header=None, index=None, sep=' ', mode='w')
-            print("作成完了")
+            visitor_df.to_csv(data_path+str(game_date)+"/"+str(game_id) +"/"+str(visitor)+'.txt', header=None, index=None, sep=' ', mode='w')
+            home_df.to_csv(data_path+str(game_date)+"/"+str(game_id) +"/"+str(home)+'.txt', header=None, index=None, sep=' ', mode='w')
         else:
             print("試合中止のためメンバーデータ無し")
-        break
