@@ -1,176 +1,123 @@
+import os
 import urllib
-import requests
 import datetime
 import subprocess
 import numpy as np
 import pandas as pd
 import streamlit as st
-from bs4 import BeautifulSoup
 
-giants_url = "https://baseballdata.jp/1/ctop.html"
-swallows_url = "https://baseballdata.jp/2/ctop.html"
-dena_url = "https://baseballdata.jp/3/ctop.html"
-dragons_url = "https://baseballdata.jp/4/ctop.html"
-tigers_url = "https://baseballdata.jp/5/ctop.html"
-carp_url = "https://baseballdata.jp/6/ctop.html"
 
-lions_url = "https://baseballdata.jp/7/ctop.html"
-fighters_url = "https://baseballdata.jp/8/ctop.html"
-lotte_url = "https://baseballdata.jp/9/ctop.html"
-orix_url = "https://baseballdata.jp/11/ctop.html"
-hawks_url = "https://baseballdata.jp/12/ctop.html"
-eagles_url = "https://baseballdata.jp/376/ctop.html"
+def run_calc(v_path, h_path, visitor_name, home_name):
+    """
+    指定されたパスのファイルを読み込み、calcに渡して勝率を計算する
+    """
+    # 1. C++が読み込める場所にファイルをコピー（または中身を読み替えて出力）
+    # ここでは単純にファイルを読み込んで ./data/top.txt, ./data/bottom.txt に保存し直す例
+    try:
+        with open(v_path, 'r') as f:
+            v_data = f.read()
+        with open(h_path, 'r') as f:
+            h_data = f.read()
+            
+        os.makedirs("data", exist_ok=True)
+        with open("data/top.txt", "w") as f:
+            f.write(v_data)
+        with open("data/bottom.txt", "w") as f:
+            f.write(h_data)
 
-team_dic = {
-        '読売ジャイアンツ':  giants_url ,  
-        '東京ヤクルトスワローズ': swallows_url, 
-        '横浜DeNAベイスターズ': dena_url, 
-        '中日ドラゴンズ': dragons_url, 
-        '阪神タイガース': tigers_url, 
-        '広島東洋カープ': carp_url,
-                           
-        '埼玉西武ライオンズ': lions_url, 
-        '北海道日本ハムファイターズ': fighters_url, 
-        '千葉ロッテマリーンズ': lotte_url, 
-        'オリックス・バファローズ': orix_url, 
-        '福岡ソフトバンクホークス': hawks_url, 
-        '東北楽天ゴールデンイーグルス': eagles_url
-    }
-
-# dateで受け取った日に開催された各試合の出場成績のリンクをリスト形式で返す
-def get_top_links(date):
-    params = { 'date': date }
-    schedule_page = requests.get('https://baseball.yahoo.co.jp/npb/schedule', params=params)
-    soup_schedule = BeautifulSoup(schedule_page.text, 'html.parser')
-    game_link_elms = soup_schedule.find_all('a', class_='bb-score__content')
-    game_links = list(map(lambda x: x['href'].replace('index', 'top'), game_link_elms))
-    return game_links
-
-def data_generate(URL, debug=False):
-    html = urllib.request.urlopen(URL)
-
-    # htmlをBeautifulSoupで扱う
-    soup = BeautifulSoup(html, "html.parser")
-    
-    tmp_data= []
-    web_data = soup.tbody.findAll("tr")
-    for i in range(len(web_data)):
-        row_tmp = web_data[i].getText().replace("\r", "").replace(" ", "").split("\n")
-        row = [a for a in row_tmp if a != '']
-        if row not in tmp_data:
-            if "○" in row: #一軍にいる選手
-                row.pop(2) #一軍のoマークを削除
-                tmp_data.append(row) 
-            elif "選手名" in row:
-                title = row
-            else:
-                tmp_data.append(row) #一軍にいないとされている選手
-    
-    title.remove("調子")
-    title.remove("一軍")
-
-    df = pd.DataFrame(tmp_data)    
-    df.columns = title
-    team = df.iloc[0]["球団"]
+        # 2. 計算実行
+        cmd = "./calc"
+        output_raw = subprocess.check_output(cmd).decode()
+        lines = output_raw.split("\n")[:2]
         
-    # データの型をobject型からintまたはfloat型に変換する
-    for i in ["打点", "本塁打", "安打数", "単打", "2塁打", "3塁打", "併殺", "四球", "打席数", "打数",
-              "死球", "企盗塁", "盗塁", "企犠打","犠打","犠飛",]:
-        df[i] = df[i].astype("int")
+        res_v = lines[0].split(":")[1]
+        res_h = lines[1].split(":")[1]
+        return res_v, res_h
+    except Exception as e:
+        return f"Error: {e}", f"Error: {e}"
 
-    for i in ["打率"]:
-        df[i] = df[i].astype("float")
-
-    df["盗塁成功率"] = df["盗塁"] / df["企盗塁"]
-    df["犠打成功率"] = df["犠打"] / df["企犠打"]
-    
-    # 欠損値は0で補完
-    df["盗塁成功率"].fillna(0, inplace=True)
-    df["犠打成功率"].fillna(0, inplace=True)
-
-    #　選手名を修正
-    df["選手名"] = df["選手名"].apply(lambda x: x.split(":")[1].split(".")[0].split(team)[0])
-    
-    # 各選手について 凡退,単打率 二塁打率 三塁打率 本塁打率 四死球率 盗塁成功率 犠打成功率　併殺打率を計算する
-    denominator = (df["打席数"] - df["犠打"] - df["犠飛"])
-    df["単打率"] = df["単打"] / denominator
-    df["二塁打率"] = df["2塁打"] / denominator
-    df["三塁打率"] = df["3塁打"] / denominator
-    df["本塁打率"] = df["本塁打"] / denominator
-    df["四死球率"] = (df["四球"] + df["死球"]) / denominator
-    df["併殺打率"] = df["併殺"] / denominator
-    df["凡退率"] =  (denominator - df["単打"] - df["2塁打"] - df["3塁打"] - df["本塁打"] - df["四球"] - df["死球"]) / denominator
-    df["併殺打率"] = df["併殺"] / denominator
-
-    calc_df = df[["選手名", "凡退率","単打率","二塁打率","三塁打率","本塁打率","四死球率","盗塁成功率","犠打成功率", "併殺打率"]]
-    return calc_df, team
-
-# https://stackoverflow.com/questions/31247198/python-pandas-write-content-of-dataframe-into-text-file
-def make_df(url, players, opt):
-    df, team = data_generate(url)
-    players = {i:ind for ind, i in enumerate(players)}
-    inv_players = {ind:i for ind, i in enumerate(players)}
-    
-    df['order'] = df['選手名'].map(players)
-    
-    #今季一軍初出場選手の調整
-    missing_no = list(set(range(9)) - set(df.order.unique()))
-    missing_players = [inv_players[i] for i in missing_no] 
-    
-    for i in range(len(missing_players)):
-        tmp = [1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.0, 0.000000, 0.000000]
-        tmp = pd.DataFrame([missing_players[i]] + tmp + [missing_no[i]]).T
-        tmp.columns = df.columns
-        df = pd.concat([df, tmp], axis=0)
-    
-    df = df[~df.order.isnull()].sort_values("order", ascending=True).drop('order', axis=1)#.reset_index(drop=True)
-    
-    # 値が欠損の選手の調整
-    df["凡退率"].fillna(1, inplace = True)
-    df.fillna(0, inplace = True)
-        
-    assert df.shape[0] == 9
-    assert np.allclose(df.iloc[:,1:7].sum(axis=1), 1)
-    
-    df.iloc[:,1:].to_csv(r'data/'+str(opt)+'.txt', header=None, index=None, sep=' ', mode='w')
 
 if __name__ == "__main__":
-    d_today = datetime.date(2023,4,1)
-    st.title(str(d_today)+"のプロ野球勝率予測")
+    game_date = datetime.date(2025, 4, 3)
+    st.title(f"{str(game_date)}のプロ野球勝率予測")
+    date_str = game_date.strftime("%Y-%m-%d")
+    base_path = f"data/{date_str}"
 
-    game_links = get_top_links(d_today)
+    if not os.path.exists(base_path):
+        st.error(f"ディレクトリが見つかりません: {base_path}")
+    else:
+        game_dirs = sorted([d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))])
+        
+        if not game_dirs:
+            st.warning("試合データが存在しません。")
+        else:
+            game_labels = []
+            game_info = []
 
-    for id_, game_link in enumerate(game_links):
-        html = urllib.request.urlopen(game_link)
-        soup = BeautifulSoup(html, "html.parser")
+            for g_id in game_dirs:
+                g_path = os.path.join(base_path, g_id)
+                teams = [f for f in os.listdir(g_path) if f.endswith('.txt')]
+                if len(teams) >= 2:
+                    t1 = teams[0].replace('.txt', '')
+                    t2 = teams[1].replace('.txt', '')
+                    game_labels.append(f"{t1} vs {t2}")
+                    game_info.append({
+                        "teams": [t1, t2],
+                        "paths": [os.path.join(g_path, teams[0]), os.path.join(g_path, teams[1])]
+                    })
 
-        # 対戦チーム名
-        home = soup.find('title').text.split(" ")[1].split('vs.')[0]
-        visitor = soup.find('title').text.split(" ")[1].split('vs.')[1]
-    
-        # スタメンを抽出
-        data = soup.find_all('td', class_='bb-splitsTable__data bb-splitsTable__data--text')
-        data = [i.text.split('\n')[1] for i in data][:20]
-        home_member = [i.replace(' ', '') for i in data[1:10]]
-        visitor_member = [i.replace(' ', '') for i in data[11:20]]
-    
-        # データ生成
-        member_df = pd.DataFrame(visitor_member, columns = ["先攻"], index = list(range(1,10)))
-        member_df["後攻"] = home_member
+            if game_labels:
+                # 3. 試合の選択
+                selected_game_label = st.selectbox("試合を選択してください", game_labels)
+                i = game_labels.index(selected_game_label)
+                current_game = game_info[i]
 
-        make_df(team_dic[visitor], visitor_member, "top")
-        make_df(team_dic[home], home_member, "bottom")
-    
-        # 勝率計算
-        cmd = "./calc"
-        output = subprocess.check_output(cmd).decode()
-        output = output.split("\n")[:2]
-        output = [visitor + output[0].split("先攻")[1],
-                  home + output[1].split("後攻")[1],]
+                # --- 【追加】先攻・後攻の選択ロジック ---
+                st.write("---")
+                col_sel1, col_sel2 = st.columns(2)
+                
+                # 選択肢としてチーム名のリストを作成
+                team_options = current_game["teams"]
+                
+                with col_sel1:
+                    visitor_name = st.selectbox("先攻チームを選択", team_options, index=0)
+                with col_sel2:
+                    # 先攻に選ばれなかった方をデフォルトにする
+                    default_home_idx = 1 if team_options.index(visitor_name) == 0 else 0
+                    home_name = st.selectbox("後攻チームを選択", team_options, index=default_home_idx)
 
-        # streamlit output
-        st.header(visitor+"vs"+home)
-        st.subheader("starting member")
-        st.write(member_df)
-        st.subheader("result")
-        st.write(output)
+                if visitor_name == home_name:
+                    st.error("先攻と後攻には別のチームを選択してください。")
+                else:
+                    # パスを確定させる
+                    v_path = current_game["paths"][team_options.index(visitor_name)]
+                    h_path = current_game["paths"][team_options.index(home_name)]
+
+                    # スタメンデータのプレビュー
+                    try:
+                        v_df = pd.read_csv(v_path, sep=' ', header=None)
+                        h_df = pd.read_csv(h_path, sep=' ', header=None)
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.subheader(f"{visitor_name}")
+                            st.dataframe(v_df)
+                        with col2:
+                            st.subheader(f"{home_name}")
+                            st.dataframe(h_df)
+                    except:
+                        st.caption("データプレビューを表示できません。")
+
+                    # 4. 勝率計算ボタン
+                    if st.button("勝率を計算", key=f"calc_{i}"):
+                        with st.spinner("計算エンジン実行中..."):
+                            # 選択された通りの順番でrun_calcに渡す
+                            res_v, res_h = run_calc(v_path, h_path, visitor_name, home_name)
+                            
+                            st.divider()
+                            st.subheader("予測結果")
+                            m1, m2 = st.columns(2)
+                            m1.metric(f"{visitor_name} (先攻) 期待勝率", res_v)
+                            m2.metric(f"{home_name} (後攻) 期待勝率", res_h)
+            else:
+                st.info("対戦データが不足しています。")
