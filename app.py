@@ -98,13 +98,13 @@ if __name__ == "__main__":
                         v_df = pd.read_csv(v_path, sep=' ')
                         h_df = pd.read_csv(h_path, sep=' ')
                         
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.subheader(f"{visitor_name}")
-                            st.dataframe(v_df)
-                        with col2:
-                            st.subheader(f"{home_name}")
-                            st.dataframe(h_df)
+                        # 先攻チームを表示
+                        st.subheader(f"先攻: {visitor_name}")
+                        st.dataframe(v_df, width="stretch", hide_index=True)
+                        
+                        # 後攻チームを表示（縦に並ぶ）
+                        st.subheader(f"後攻: {home_name}")
+                        st.dataframe(h_df, width="stretch", hide_index=True)
                     except:
                         st.caption("データプレビューを表示できません。")
 
