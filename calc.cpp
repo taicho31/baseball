@@ -679,6 +679,10 @@ int main(void)
 	/*先攻チームのデータ読み取り*/
 	FILE *ff = fopen("./data/top.txt", "r");
 
+	// 最初の1行（ヘッダー行）を丸ごと読み飛ばす
+	char dummy[1024];
+	fgets(dummy, sizeof(dummy), ff);
+
 	for (int row = 0; row < NAME; row++){
 		// 一列目は選手名なので読み飛ばす
 		fscanf(ff, "%*s");
@@ -690,6 +694,9 @@ int main(void)
 
 	/*後攻チームのデータ読み取り*/
 	FILE *fg = fopen("./data/bottom.txt", "r");
+
+	// 最初の1行（ヘッダー行）を丸ごと読み飛ばす
+	fgets(dummy, sizeof(dummy), fg);
 
 	for (int row = 0; row < NAME; row++){
 		// 一列目は選手名なので読み飛ばす

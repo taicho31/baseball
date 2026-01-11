@@ -174,7 +174,7 @@ if __name__ == "__main__":
             visitor_df = make_df(team_dic[visitor], visitor_member, "top")
             home_df = make_df(team_dic[home], home_member, "bottom")
 
-            visitor_df.to_csv(data_path+str(game_date)+"/"+str(game_id) +"/"+str(visitor)+'.txt', header=None, index=None, sep=' ', mode='w')
-            home_df.to_csv(data_path+str(game_date)+"/"+str(game_id) +"/"+str(home)+'.txt', header=None, index=None, sep=' ', mode='w')
+            visitor_df.to_csv(data_path+str(game_date)+"/"+str(game_id) +"/"+str(visitor)+'.txt', index=None, sep=' ', mode='w')
+            home_df.to_csv(data_path+str(game_date)+"/"+str(game_id) +"/"+str(home)+'.txt', index=None, sep=' ', mode='w')
         else:
             print("試合中止のためメンバーデータ無し")

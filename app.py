@@ -95,8 +95,8 @@ if __name__ == "__main__":
 
                     # スタメンデータのプレビュー
                     try:
-                        v_df = pd.read_csv(v_path, sep=' ', header=None)
-                        h_df = pd.read_csv(h_path, sep=' ', header=None)
+                        v_df = pd.read_csv(v_path, sep=' ')
+                        h_df = pd.read_csv(h_path, sep=' ')
                         
                         col1, col2 = st.columns(2)
                         with col1:
