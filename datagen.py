@@ -137,7 +137,7 @@ def make_df(url, players, opt):
     assert df.shape[0] == 9
     assert np.allclose(df.iloc[:,1:7].sum(axis=1), 1)
 
-    display(df)
+    print(df)
     
     return df
 
