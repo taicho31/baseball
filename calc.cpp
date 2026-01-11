@@ -680,6 +680,8 @@ int main(void)
 	FILE *ff = fopen("./data/top.txt", "r");
 
 	for (int row = 0; row < NAME; row++){
+		// 一列目は選手名なので読み飛ばす
+		fscanf(ff, "%*s");
 		for (int col = 0; col < RESULT; col++)
 		{
 			fscanf(ff, "%lf", &omote[row][col]);
@@ -690,6 +692,8 @@ int main(void)
 	FILE *fg = fopen("./data/bottom.txt", "r");
 
 	for (int row = 0; row < NAME; row++){
+		// 一列目は選手名なので読み飛ばす
+		fscanf(fg, "%*s");
 		for (int col = 0; col < RESULT; col++)
 		{
 			fscanf(fg, "%lf", &ura[row][col]);
