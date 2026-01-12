@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <fstream>
+#include <iostream>
 
 using namespace std;
 
@@ -729,15 +730,13 @@ int main(void)
 		}
 	}
 
-	i = 0;
-	t = 0;
-	w = 0;
-	s = 20;
-	r1 = 0;
-	r2 = 0;
-	r3 = 0;
-	b1 = 0;
-	b2 = 0;
+
+	// 標準入力の値を変数の値として使う
+	// 試合開始なら0, 0, 0, 20, 0, 0, 0, 0, 0
+	int i, t, w, s, r1, r2, r3, b1, b2;
+	if (!(std::cin >> i >> t >> w >> s >> r1 >> r2 >> r3 >> b1 >> b2)) {
+        return 1; // 読み込み失敗
+    }
 
 	top_wp = calc(i, t, w, s, r1, r2, r3, b1, b2, 0);
 	bot_wp = calc(i, t, w, s, r1, r2, r3, b1, b2, 1);
