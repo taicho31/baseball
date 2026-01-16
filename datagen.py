@@ -131,7 +131,6 @@ def data_generate(URL, debug=False):
         - df["四球"]
         - df["死球"]
     ) / denominator
-    df["併殺打率"] = df["併殺"] / denominator
 
     calc_df = df[
         [
