@@ -42,27 +42,10 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 	b1 = b1 % 9;  //0,1,2,3,4,5,6,7,8
 	b2 = b2 % 9;  //0,1,2,3,4,5,6,7,8
 	t = t % 2;    //0,1
-	double top_batting, top_iw;  
-	double bot_batting, bot_iw;  
 
 	if (table[i][t][w][s][r1][r2][r3][b1][b2][m] != UNCHECK) return table[i][t][w][s][r1][r2][r3][b1][b2][m];
 
     /*吸収状態の定義*/
-	else if (i >= 8 && t == 1 && w == 3 && s > INITIAL_SCORE) //先攻リード
-	{
-		if (m == 0)	return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 1;
-		else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 0;
-	}
-	else if ((i == 8 && t == 0 && w == 3 && s < INITIAL_SCORE) || (i >= 8 && t == 1 && s < INITIAL_SCORE)) //後攻リード
-	{
-		if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 0;
-		else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 1;
-	}
-	else if (i == 11 && t == 1 && w == 3 && s == INITIAL_SCORE) //延長12回同点で引き分け
-	{
-		if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 0;
-		else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 0;
-	}
 	else if (s >= INITIAL_SCORE + COLD_DIFF) //先攻コールド勝ち
 	{
 		if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 1;
@@ -73,12 +56,36 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 		if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 0;
 		else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 1; 
 	}             
+	else if (i >= 8 && t == 1 && s < INITIAL_SCORE) //後攻サヨナラ勝ち
+	{
+		if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 0;
+		else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 1;
+	}
 
 	// 3アウト
-	else if (w == 3){
-		if (t == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = calc(i    , t + 1, 0, s, 0, 0, 0, b1, b2, m);
-		else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = calc(i + 1, t    , 0, s, 0, 0, 0, b1, b2, m);
-	}          
+    else if (w == 3) { // 併殺などを考慮し >= にするのが安全です
+        if (t == 0) { // 表が終わったとき
+            if (i >= 8 && s < INITIAL_SCORE) { 
+                return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (m == 1 ? 1.0 : 0.0);
+            }
+            return table[i][t][w][s][r1][r2][r3][b1][b2][m] = calc(i, 1, 0, s, 0, 0, 0, b1, b2, m);
+        } 
+        else { // 裏が終わったとき
+            // 1. 9回裏以降で決着がついている場合
+            if (i >= 8 && s != INITIAL_SCORE) {
+                if (s > INITIAL_SCORE) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (m == 0 ? 1.0 : 0.0);
+                if (s < INITIAL_SCORE) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (m == 1 ? 1.0 : 0.0);
+            }
+            
+            // 2. 延長12回(i=11)の裏が終わって同点の場合【引き分け】
+            if (i == 11 && s == INITIAL_SCORE) {
+                return table[i][t][w][s][r1][r2][r3][b1][b2][m] = 0.0; // 両チーム勝率0
+            }
+
+            // 3. それ以外（9回未満、または延長12回未満で同点）なら次の回へ
+            return table[i][t][w][s][r1][r2][r3][b1][b2][m] = calc(i + 1, 0, 0, s, 0, 0, 0, b1, b2, m);
+        }
+    }
 
 	// ランナーなし 
 	else if (r1 == 0 && r2 == 0 && r3 == 0)
@@ -153,81 +160,20 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 	// ランナー2塁    盗塁なし    凡退、単打、二塁打、三塁打、本塁打、四球の順//
 	else if (r1 == 0 && r2 == 1 && r3 == 0){
 		if (t == 0){
-			top_iw = calc(i, t, w, s, 1, 1, 0, b1 + 1, b2, 0);
-
-			top_batting = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1 + 1, b2, 0) 
-						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, 0)
-						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, 0) 
-						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, 0)
-						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, 0) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 0, b1 + 1, b2, 0);
-
-			bot_iw = calc(i, t, w, s, 1, 1, 0, b1 + 1, b2, 1);
-
-			bot_batting = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1 + 1, b2, 1) 
-						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, 1)
-						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, 1) 
-						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, 1)
-						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, 1) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 0, b1 + 1, b2, 1);
-
-			if (bot_iw > bot_batting){ //守備チーム後攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (bot_iw < bot_batting){ //守備チーム後攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else{ //守備チーム後攻にとって敬遠、投球は同じ勝率なので、先攻チームの勝率を下げる戦略を選択
-				if (top_iw <= top_batting){
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-				}
-				else {
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;	
-				}
-			}
-
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1 + 1, b2, m) 
+						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, m)
+						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, m) 
+						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, m)
+						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, m) 
+						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 0, b1 + 1, b2, m);
 		}
 		else{
-			top_iw = calc(i, t, w, s, 1, 1, 0, b1, b2 + 1, 0);
-
-			top_batting = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1, b2 + 1, 0) 
-						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, 0)
-						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, 0) 
-						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, 0)
-						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, 0) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 0, b1, b2 + 1, 0);
-
-			bot_iw = calc(i, t, w, s, 1, 1, 0, b1, b2 + 1, 1);
-
-			bot_batting = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1, b2 + 1, 1) 
-						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, 1)
-						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, 1) 
-						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, 1)
-						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, 1) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 0, b1, b2 + 1, 1);
-
-			if (top_iw > top_batting){ //守備チーム先攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (top_iw < top_batting){ //守備チーム先攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else { //守備チーム先攻にとって敬遠、投球は同じ勝率なので、後攻チームの勝率を下げる戦略を選択//
-				if (bot_iw <= bot_batting){
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-				} 
-				else {
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-				}
-			}
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1, b2 + 1, m) 
+						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, m)
+						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, m) 
+						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, m)
+						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, m) 
+						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 0, b1, b2 + 1, m);
 		}
 	}
 
@@ -235,85 +181,25 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 	else if (r1 == 0 && r2 == 0 && r3 == 1)
 	{
 		if (t == 0){
-			top_iw = calc(i, t, w, s, 1, 0, 1, b1 + 1, b2, 0);
-
-			top_batting = omote[b1][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1 + 1, b2, 0) 
-						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, 0)
-						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, 0) 
-						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, 0)
-						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, 0) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 0, 1, b1 + 1, b2, 0);
-
-			bot_iw = calc(i, t, w, s, 1, 0, 1, b1 + 1, b2, 1);
-
-			bot_batting = omote[b1][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1 + 1, b2, 1) 
-						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, 1)
-						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, 1) 
-						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, 1)
-						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, 1) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 0, 1, b1 + 1, b2, 1);
-
-			if (bot_iw > bot_batting){ //守備チーム後攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (bot_iw < bot_batting){ //守備チーム後攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else{ //守備チーム後攻にとって敬遠、投球は同じ勝率なので、先攻チームの勝率を下げる戦略を選択
-				if (top_iw <= top_batting){
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-				}
-				else {
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;	
-				}
-			}
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1 + 1, b2, m) 
+						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, m)
+						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, m) 
+						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, m)
+						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, m) 
+						+ omote[b1][5] * calc(i, t, w    , s    , 1, 0, 1, b1 + 1, b2, m);
 		}
 		else //t==1//
 		{
-			top_iw = calc(i, t, w, s, 1, 0, 1, b1, b2 + 1, 0);
-
-			top_batting = ura[b2][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1, b2 + 1, 0) 
-						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, 0)
-						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, 0) 
-						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, 0)
-						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, 0) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 0, 1, b1, b2 + 1, 0);
-
-			bot_iw = calc(i, t, w, s, 1, 0, 1, b1, b2 + 1, 1);
-
-			bot_batting = ura[b2][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1, b2 + 1, 1) 
-						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, 1)
-						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, 1) 
-						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, 1)
-						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, 1) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 0, 1, b1, b2 + 1, 1);
-
-			if (top_iw > top_batting){ //守備チーム先攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (top_iw < top_batting){ //守備チーム先攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else { //守備チーム先攻にとって敬遠、投球は同じ勝率なので、後攻チームの勝率を下げる戦略を選択//
-				if (bot_iw <= bot_batting){
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-				} 
-				else {
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-				}
-			}
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1, b2 + 1, m) 
+						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, m)
+						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, m) 
+						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, m)
+						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, m) 
+						+ ura[b2][5] * calc(i, t, w    , s    , 1, 0, 1, b1, b2 + 1, m);
 		}
 	}
 
-	// ランナー1,2塁    　盗塁なし   凡退、単打、二塁打、三塁打、本塁打、四球の順//
+	// ランナー1,2塁   凡退、単打、二塁打、三塁打、本塁打、四球の順//
 	else if (r1 == 1 && r2 == 1 && r3 == 0)
 	{
 		if (t == 0){
@@ -361,85 +247,25 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 		}
 	}
 
-	// ランナー2,3塁    盗塁なし   凡退、単打、二塁打、三塁打、本塁打、四球の順 //
+	// ランナー2,3塁  凡退、単打、二塁打、三塁打、本塁打、四球の順 //
 	else if (r1 == 0 && r2 == 1 && r3 == 1)
 	{
 		if (t == 0){
-			top_iw = calc(i, t, w, s, 1, 1, 1, b1 + 1, b2, 0);
-
-			top_batting = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1 + 1, b2, 0) 
-						+ omote[b1][1] * calc(i, t, w    , s + 2, 1, 0, 0, b1 + 1, b2, 0)
-						+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 0) 
-						+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 0)
-						+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 0) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 0);
-
-			bot_iw = calc(i, t, w, s, 1, 1, 1, b1 + 1, b2, 1);
-
-			bot_batting = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1 + 1, b2, 1) 
-						+ omote[b1][1] * calc(i, t, w    , s + 2, 1, 0, 0, b1 + 1, b2, 1)
-						+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 1) 
-						+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 1)
-						+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 1) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 1);
-			
-			if(bot_iw > bot_batting){ //守備チーム後攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (bot_iw < bot_batting){ //守備チーム後攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else{ //守備チームにとっては敬遠、投球どちらでも同じ勝率なので、先攻の勝率を下げる戦略を選択
-				if (top_iw <= top_batting){ //守備チームは敬遠を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-				}
-				else{ //守備チームは投球を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-				}
-			}	
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1 + 1, b2, m) 
+						+ omote[b1][1] * calc(i, t, w    , s + 2, 1, 0, 0, b1 + 1, b2, m)
+						+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
+						+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
+						+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
+						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m);	
 		}
 		else //t==1//
-		{
-			top_iw = calc(i, t, w, s, 1, 1, 1, b1, b2 + 1, 0);
-
-			top_batting = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1, b2 + 1, 0) 
-						+ ura[b2][1] * calc(i, t, w    , s - 2, 1, 0, 0, b1, b2 + 1, 0)
-						+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 0) 
-						+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 0)
-						+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 0) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 0);
-
-			bot_iw = calc(i, t, w, s, 1, 1, 1, b1, b2 + 1, 1);
-								
-			bot_batting = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1, b2 + 1, 1) 
-						+ ura[b2][1] * calc(i, t, w    , s - 2, 1, 0, 0, b1, b2 + 1, 1)
-						+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 1) 
-						+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 1)
-						+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 1) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 1);
-								
-			if(top_iw > top_batting){ //守備チーム先攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else  		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (top_iw < top_batting){ //守備チーム先攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else{ //守備チームにとっては敬遠、投球どちらでも同じ勝率なので、後攻の勝率を下げる戦略を選択//
-				if (bot_iw <= bot_batting){ //守備チームは敬遠を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;			
-				}
-				else{ //守備チームは投球を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-				}
-			}
+		{								
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1, b2 + 1, m) 
+						+ ura[b2][1] * calc(i, t, w    , s - 2, 1, 0, 0, b1, b2 + 1, m)
+						+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
+						+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
+						+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
+						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m);
 		}
 	}
 
@@ -447,159 +273,69 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 	else if (r1 == 1 && r2 == 0 && r3 == 1)
 	{
 		if (t == 0){
-			top_iw = calc(i, t, w, s, 1, 1, 1, b1 + 1, b2, 0);
-			bot_iw = calc(i, t, w, s, 1, 1, 1, b1 + 1, b2, 1);
-
 			if (w == 0)
 			{
-				top_batting = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, 0) 
-										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, 0)
-										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 0) 
-										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 0)
-										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 0) 
-										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 0)
-										   + omote[b1][8] * calc(i, t, w + 2, s + 1, 0, 0, 0, b1 + 1, b2, 0);
-
-				bot_batting = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, 1) 
-										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, 1)
-										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 1) 
-										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 1)
-										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 1) 
-										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 1)
-										   + omote[b1][8] * calc(i, t, w + 2, s + 1, 0, 0, 0, b1 + 1, b2, 1);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, m) 
+										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
+										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
+										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
+										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
+										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m)
+										   + omote[b1][8] * calc(i, t, w + 2, s + 1, 0, 0, 0, b1 + 1, b2, m);
 			}
 			else if (w == 1)
 			{
-				top_batting = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, 0) 
-										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, 0)
-										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 0) 
-										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 0)
-										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 0) 
-										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 0)
-										   + omote[b1][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1 + 1, b2, 0);
-
-				bot_batting = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, 1) 
-										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, 1)
-										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 1) 
-										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 1)
-										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 1) 
-										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 1)
-										   + omote[b1][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1 + 1, b2, 1);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, m) 
+										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
+										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
+										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
+										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
+										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m)
+										   + omote[b1][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1 + 1, b2, m);
 			}
 			else //w==2//
 			{
-				top_batting = omote[b1][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, 0) 
-							+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, 0)
-							+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 0) 
-							+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 0)
-							+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 0) 
-							+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 0);
-
-				bot_batting = omote[b1][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, 1) 
-							+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, 1)
-							+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, 1) 
-							+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, 1)
-							+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, 1) 
-							+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, 1);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, m) 
+							+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
+							+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
+							+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
+							+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
+							+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m);
 			}
-
-			if(bot_iw > bot_batting){ //守備チーム後攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (bot_iw < bot_batting){ //守備チーム後攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else{ //守備チーム後攻にとって投球、敬遠は変わりがないので、先攻チームの勝率を下げる戦略を選ぶ
-				if(top_iw <= top_batting){ //敬遠を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-				}
-				else{ //投球を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;	
-				}
-			} 
 		}
 		else //t==1//
 		{
-			top_iw = calc(i, t, w, s, 1, 1, 1, b1, b2 + 1, 0);
-			bot_iw = calc(i, t, w, s, 1, 1, 1, b1, b2 + 1, 1);
-
 			if (w == 0){
-				top_batting = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, 0) 
-										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, 0)
-										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 0) 
-										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 0)
-										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 0) 
-										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 0)
-										 + ura[b2][8] * calc(i, t, w + 2, s - 1, 0, 0, 0, b1, b2 + 1, 0);
-
-				bot_batting = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, 1) 
-										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, 1)
-										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 1) 
-										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 1)
-										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 1) 
-										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 1)
-										 + ura[b2][8] * calc(i, t, w + 2, s - 1, 0, 0, 0, b1, b2 + 1, 1);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, m) 
+										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
+										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
+										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
+										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
+										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m)
+										 + ura[b2][8] * calc(i, t, w + 2, s - 1, 0, 0, 0, b1, b2 + 1, m);
 			}
 			else if (w == 1){
-				top_batting = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, 0) 
-										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, 0)
-										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 0) 
-										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 0)
-										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 0) 
-										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 0)
-										 + ura[b2][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1, b2 + 1, 0);
-
-				bot_batting = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, 1) 
-										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, 1)
-										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 1) 
-										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 1)
-										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 1) 
-										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 1)
-										 + ura[b2][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1, b2 + 1, 1);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, m) 
+										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
+										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
+										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
+										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
+										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m)
+										 + ura[b2][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1, b2 + 1, m);
 			}
 			else //w==2//
 			{
-				top_batting = ura[b2][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, 0) 
-							+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, 0)
-							+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 0) 
-							+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 0)
-							+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 0) 
-							+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 0);
-
-				bot_batting = ura[b2][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, 1) 
-							+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, 1)
-							+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, 1) 
-							+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, 1)
-							+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, 1) 
-							+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, 1);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, m) 
+							+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
+							+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
+							+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
+							+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
+							+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m);
 			}
-
-			if(top_iw > top_batting){ //守備チーム先攻が敬遠を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-			}
-			else if (top_iw < top_batting){ //守備チーム先攻が投球を選択//
-				if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-				else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;
-			}
-			else{ //守備チーム先攻にとって投球、敬遠は変わりがないので、後攻チームの勝率を下げる戦略を選ぶ//
-				if(bot_iw <= bot_batting){ //敬遠を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_iw;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_iw;
-				}
-				else{ //投球を選択//
-					if (m == 0) return table[i][t][w][s][r1][r2][r3][b1][b2][m] = top_batting;
-					else 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = bot_batting;	
-				}
-			} 
 		}
 	}
 
-	/*ランナー満塁   盗塁なし 敬遠無し 凡退、単打、二塁打、三塁打、本塁打、四球の順*/
+	/*ランナー満塁 凡退、単打、二塁打、三塁打、本塁打、四球の順*/
 	else if (r1 == 1 && r2 == 1 && r3 == 1)
 	{
 		if (t == 0){
