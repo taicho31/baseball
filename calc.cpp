@@ -49,7 +49,6 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 	int nb1 = b1 + (1 - t);                     // 先攻なら打者を進める
 	int nb2 = b2 + (t);                         // 後攻なら打者を進める
 
-
 	if (table[i][t][w][s][r1][r2][r3][b1][b2][m] != UNCHECK) return table[i][t][w][s][r1][r2][r3][b1][b2][m];
 
     /*吸収状態の定義*/
@@ -109,7 +108,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 	else if (r1 == 1 && r2 == 0 && r3 == 0){
 		if (w == 0 || w == 1)
 		{
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 0, 0, nb1, nb2, m) 
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 0, 0, nb1, nb2, m)
 																	 + p[1] * calc(i, t, w    , s         , 1, 0, 1, nb1, nb2, m)
 									 					    		 + p[2] * calc(i, t, w    , s + 1 * ds, 0, 1, 0, nb1, nb2, m) 
 									 								 + p[3] * calc(i, t, w    , s + 1 * ds, 0, 0, 1, nb1, nb2, m)
@@ -129,7 +128,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 		}
 	}
 
-	// ランナー2塁    盗塁なし    凡退、単打、二塁打、三塁打、本塁打、四球の順//
+	// ランナー2塁 凡退、単打、二塁打、三塁打、本塁打、四球の順
 	else if (r1 == 0 && r2 == 1 && r3 == 0){
 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 0, 1, 0, nb1, nb2, m) 
 														+ p[1] * calc(i, t, w    , s + ds    , 1, 0, 0, nb1, nb2, m)
@@ -139,7 +138,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 														+ p[5] * calc(i, t, w    , s         , 1, 1, 0, nb1, nb2, m);
 	}
 
-	/*ランナー3塁   盗塁なし   凡退、単打、二塁打、三塁打、本塁打、四球の順*/
+	// ランナー3塁 凡退、単打、二塁打、三塁打、本塁打、四球の順
 	else if (r1 == 0 && r2 == 0 && r3 == 1)
 	{
 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 0, 0, 1, nb1, nb2, m) 
@@ -150,7 +149,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 														+ p[5] * calc(i, t, w    , s         , 1, 0, 1, nb1, nb2, m);
 	}
 
-	// ランナー1,2塁   凡退、単打、二塁打、三塁打、本塁打、四球の順//
+	// ランナー1,2塁   凡退、単打、二塁打、三塁打、本塁打、四球の順
 	else if (r1 == 1 && r2 == 1 && r3 == 0)
 	{
 		if (w == 0 || w == 1)
@@ -174,7 +173,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 		}
 	}
 
-	// ランナー2,3塁  凡退、単打、二塁打、三塁打、本塁打、四球の順 //
+	// ランナー2,3塁  凡退、単打、二塁打、三塁打、本塁打、四球の順
 	else if (r1 == 0 && r2 == 1 && r3 == 1)
 	{
 		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 0, 1, 1, nb1, nb2, m) 
@@ -185,7 +184,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 														+ p[5] * calc(i, t, w    , s         , 1, 1, 1, nb1, nb2, m);	
 	}
 
-	/*ランナー1,3塁  凡退、単打、二塁打、三塁打、本塁打、四球の順*/
+	// ランナー1,3塁  凡退、単打、二塁打、三塁打、本塁打、四球の順
 	else if (r1 == 1 && r2 == 0 && r3 == 1)
 	{
 		if (w == 0)
@@ -219,7 +218,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 			}
 		}
 
-	/*ランナー満塁 凡退、単打、二塁打、三塁打、本塁打、四球の順*/
+	// ランナー満塁 凡退、単打、二塁打、三塁打、本塁打、四球の順
 	else if (r1 == 1 && r2 == 1 && r3 == 1)
 	{
 		if (w == 0)
@@ -230,7 +229,7 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 															    	 + p[3] * calc(i, t, w    , s + 3 * ds, 0, 0, 1, nb1, nb2, m)
 															    	 + p[4] * calc(i, t, w    , s + 4 * ds, 0, 0, 0, nb1, nb2, m) 
 																   	 + p[5] * calc(i, t, w    , s + 1 * ds, 1, 1, 1, nb1, nb2, m)
-																	 + p[8] * calc(i, t, w + 2, s + 1 * ds, 0, 1, 1, nb1, nb2, m);
+																	 + p[8] * calc(i, t, w + 2, s + 1 * ds, 0, 0, 1, nb1, nb2, m);
 		}
 		else if (w == 1)
 		{
@@ -240,9 +239,9 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 															    	 + p[3] * calc(i, t, w    , s + 3 * ds, 0, 0, 1, nb1, nb2, m)
 															    	 + p[4] * calc(i, t, w    , s + 4 * ds, 0, 0, 0, nb1, nb2, m) 
 																   	 + p[5] * calc(i, t, w    , s + 1 * ds, 1, 1, 1, nb1, nb2, m)
-																	 + p[8] * calc(i, t, w + 2, s         , 0, 1, 1, nb1, nb2, m);
+																	 + p[8] * calc(i, t, w + 2, s         , 0, 0, 1, nb1, nb2, m);
 			}
-		else //w==2//
+		else //w==2
 		{
 			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 1, 1, 1, nb1, nb2, m) 
 															+ p[1] * calc(i, t, w    , s + 2 * ds, 1, 0, 1, nb1, nb2, m)
