@@ -39,9 +39,16 @@ int i, t, w, s, r1, r2, r3, b1, b2, m;
 double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, int m)
 {
 
-	b1 = b1 % 9;  //0,1,2,3,4,5,6,7,8
-	b2 = b2 % 9;  //0,1,2,3,4,5,6,7,8
-	t = t % 2;    //0,1
+	b1 = b1 % 9;
+	b2 = b2 % 9;
+	t = t % 2;
+
+	// 先攻・後攻で異なる要素を変数に格納
+	const auto& p = (t == 0) ? omote[b1] : ura[b2]; // 参照する確率配列
+	int ds = (t == 0) ? 1 : -1;                     // スコアの加減方向
+	int nb1 = b1 + (1 - t);                     // 先攻なら打者を進める
+	int nb2 = b2 + (t);                         // 後攻なら打者を進める
+
 
 	if (table[i][t][w][s][r1][r2][r3][b1][b2][m] != UNCHECK) return table[i][t][w][s][r1][r2][r3][b1][b2][m];
 
@@ -90,316 +97,159 @@ double calc(int i, int t, int w, int s, int r1, int r2, int r3, int b1, int b2, 
 	// ランナーなし 
 	else if (r1 == 0 && r2 == 0 && r3 == 0)
 	{
-		if (t == 0){
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 0, 0, 0, b1 + 1, b2, m)
-															+ omote[b1][1] * calc(i, t, w    , s    , 1, 0, 0, b1 + 1, b2, m)
-															+ omote[b1][2] * calc(i, t, w    , s    , 0, 1, 0, b1 + 1, b2, m) 
-															+ omote[b1][3] * calc(i, t, w    , s    , 0, 0, 1, b1 + 1, b2, m)
-															+ omote[b1][4] * calc(i, t, w    , s + 1, 0, 0, 0, b1 + 1, b2, m) 
-															+ omote[b1][5] * calc(i, t, w    , s    , 1, 0, 0, b1 + 1, b2, m);
-		}
-		else
-		{
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 0, 0, 0, b1, b2 + 1, m)
-															+ ura[b2][1] * calc(i, t, w    , s    , 1, 0, 0, b1, b2 + 1, m)
-															+ ura[b2][2] * calc(i, t, w    , s    , 0, 1, 0, b1, b2 + 1, m) 
-															+ ura[b2][3] * calc(i, t, w    , s    , 0, 0, 1, b1, b2 + 1, m)
-															+ ura[b2][4] * calc(i, t, w    , s - 1, 0, 0, 0, b1, b2 + 1, m)
-															+ ura[b2][5] * calc(i, t, w    , s    , 1, 0, 0, b1, b2 + 1, m);
-		}
+		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s,      0, 0, 0, nb1, nb2, m) + // アウト
+    													  p[1] * calc(i, t, w,     s,      1, 0, 0, nb1, nb2, m) + // 単打
+    													  p[2] * calc(i, t, w,     s,      0, 1, 0, nb1, nb2, m) + // 二塁打
+    													  p[3] * calc(i, t, w,     s,      0, 0, 1, nb1, nb2, m) + // 三塁打
+    													  p[4] * calc(i, t, w,     s + ds, 0, 0, 0, nb1, nb2, m) + // 本塁打
+    													  p[5] * calc(i, t, w,     s,      1, 0, 0, nb1, nb2, m);  // 四球
 	}
 
 	// ランナー:一塁 
 	else if (r1 == 1 && r2 == 0 && r3 == 0){
-		if (t == 0){
-			if (w == 0 || w == 1)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0] - omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 0, b1 + 1, b2, m) 
-																				 + omote[b1][1] * calc(i, t, w    , s    , 1, 0, 1, b1 + 1, b2, m)
-										 										 + omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, m) 
-										 										 + omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, m)
-										 										 + omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, m) 
-										 										 + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 0, b1 + 1, b2, m)
-										 										 + omote[b1][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1 + 1, b2, m);
+		if (w == 0 || w == 1)
+		{
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 0, 0, nb1, nb2, m) 
+																	 + p[1] * calc(i, t, w    , s         , 1, 0, 1, nb1, nb2, m)
+									 					    		 + p[2] * calc(i, t, w    , s + 1 * ds, 0, 1, 0, nb1, nb2, m) 
+									 								 + p[3] * calc(i, t, w    , s + 1 * ds, 0, 0, 1, nb1, nb2, m)
+									 								 + p[4] * calc(i, t, w    , s + 2 * ds, 0, 0, 0, nb1, nb2, m) 
+									 								 + p[5] * calc(i, t, w    , s         , 1, 1, 0, nb1, nb2, m)
+									 								 + p[8] * calc(i, t, w + 2, s         , 0, 0, 0, nb1, nb2, m);
 				
-			}
-			else //w==2//
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 1, 0, 0, b1 + 1, b2, m) 
-																+ omote[b1][1] * calc(i, t, w    , s    , 1, 0, 1, b1 + 1, b2, m)
-																+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, m) 
-																+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, m)
-																+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, m) 
-																+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 0, b1 + 1, b2, m);
-			}
 		}
-		else{ //t=1//			
-			if (w == 0 || w == 1)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0] - ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 0, b1, b2 + 1, m) 
-														    				   + ura[b2][1] * calc(i, t, w    , s    , 1, 0, 1, b1, b2 + 1, m)
-																			   + ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, m) 
-																			   + ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, m)
-																		       + ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, m) 
-																			   + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 0, b1, b2 + 1, m)
-																			   + ura[b2][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1, b2 + 1, m);
-			}
-			else //w==2//
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 1, 0, 0, b1, b2 + 1, m) 
-																+ ura[b2][1] * calc(i, t, w    , s    , 1, 0, 1, b1, b2 + 1, m)
-																+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, m) 
-																+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, m)
-																+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, m) 
-																+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 0, b1, b2 + 1, m);
-
-			}
+		else //w==2//
+		{
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 1, 0, 0, nb1, nb2, m) 
+															+ p[1] * calc(i, t, w    , s         , 1, 0, 1, nb1, nb2, m)
+															+ p[2] * calc(i, t, w    , s + 1 * ds, 0, 1, 0, nb1, nb2, m) 
+															+ p[3] * calc(i, t, w    , s + 1 * ds, 0, 0, 1, nb1, nb2, m)
+															+ p[4] * calc(i, t, w    , s + 2 * ds, 0, 0, 0, nb1, nb2, m) 
+															+ p[5] * calc(i, t, w    , s         , 1, 1, 0, nb1, nb2, m);
 		}
 	}
 
 	// ランナー2塁    盗塁なし    凡退、単打、二塁打、三塁打、本塁打、四球の順//
 	else if (r1 == 0 && r2 == 1 && r3 == 0){
-		if (t == 0){
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1 + 1, b2, m) 
-						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, m)
-						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, m) 
-						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, m)
-						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, m) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 0, b1 + 1, b2, m);
-		}
-		else{
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 0, b1, b2 + 1, m) 
-						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, m)
-						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, m) 
-						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, m)
-						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, m) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 0, b1, b2 + 1, m);
-		}
+		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 0, 1, 0, nb1, nb2, m) 
+														+ p[1] * calc(i, t, w    , s + ds    , 1, 0, 0, nb1, nb2, m)
+														+ p[2] * calc(i, t, w    , s + ds    , 0, 1, 0, nb1, nb2, m) 
+														+ p[3] * calc(i, t, w    , s + ds    , 0, 0, 1, nb1, nb2, m)
+														+ p[4] * calc(i, t, w    , s + 2 * ds, 0, 0, 0, nb1, nb2, m) 
+														+ p[5] * calc(i, t, w    , s         , 1, 1, 0, nb1, nb2, m);
 	}
 
 	/*ランナー3塁   盗塁なし   凡退、単打、二塁打、三塁打、本塁打、四球の順*/
 	else if (r1 == 0 && r2 == 0 && r3 == 1)
 	{
-		if (t == 0){
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1 + 1, b2, m) 
-						+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 0, b1 + 1, b2, m)
-						+ omote[b1][2] * calc(i, t, w    , s + 1, 0, 1, 0, b1 + 1, b2, m) 
-						+ omote[b1][3] * calc(i, t, w    , s + 1, 0, 0, 1, b1 + 1, b2, m)
-						+ omote[b1][4] * calc(i, t, w    , s + 2, 0, 0, 0, b1 + 1, b2, m) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 0, 1, b1 + 1, b2, m);
-		}
-		else //t==1//
-		{
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 0, 0, 1, b1, b2 + 1, m) 
-						+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 0, b1, b2 + 1, m)
-						+ ura[b2][2] * calc(i, t, w    , s - 1, 0, 1, 0, b1, b2 + 1, m) 
-						+ ura[b2][3] * calc(i, t, w    , s - 1, 0, 0, 1, b1, b2 + 1, m)
-						+ ura[b2][4] * calc(i, t, w    , s - 2, 0, 0, 0, b1, b2 + 1, m) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 0, 1, b1, b2 + 1, m);
-		}
+		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 0, 0, 1, nb1, nb2, m) 
+														+ p[1] * calc(i, t, w    , s + ds    , 1, 0, 0, nb1, nb2, m)
+														+ p[2] * calc(i, t, w    , s + ds    , 0, 1, 0, nb1, nb2, m) 
+														+ p[3] * calc(i, t, w    , s + ds    , 0, 0, 1, nb1, nb2, m)
+														+ p[4] * calc(i, t, w    , s + 2 * ds, 0, 0, 0, nb1, nb2, m) 
+														+ p[5] * calc(i, t, w    , s         , 1, 0, 1, nb1, nb2, m);
 	}
 
 	// ランナー1,2塁   凡退、単打、二塁打、三塁打、本塁打、四球の順//
 	else if (r1 == 1 && r2 == 1 && r3 == 0)
 	{
-		if (t == 0){
-			if (w == 0 || w == 1)
-			{		
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0] - omote[b1][8]) * calc(i, t, w + 1, s    , 1, 1, 0, b1 + 1, b2, m) 
-										   										 + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
-										   										 + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
-										   										 + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
-										   										 + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
-										   										 + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m)
-										   										 + omote[b1][8] * calc(i, t, w + 2, s    , 0, 0, 1, b1 + 1, b2, m);
+		if (w == 0 || w == 1)
+		{		
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 1, 0, nb1, nb2, m) 
+									   								 + p[1] * calc(i, t, w    , s + 1 * ds, 1, 0, 1, nb1, nb2, m)
+									   								 + p[2] * calc(i, t, w    , s + 2 * ds, 0, 1, 0, nb1, nb2, m) 
+									   								 + p[3] * calc(i, t, w    , s + 2 * ds, 0, 0, 1, nb1, nb2, m)
+									   								 + p[4] * calc(i, t, w    , s + 3 * ds, 0, 0, 0, nb1, nb2, m) 
+																	 + p[5] * calc(i, t, w    , s         , 1, 1, 1, nb1, nb2, m)
+							   										 + p[8] * calc(i, t, w + 2, s         , 0, 0, 1, nb1, nb2, m);
 
-			}
-			else{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 1, 1, 0, b1 + 1, b2, m) 
-																+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
-																+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
-																+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
-																+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
-																+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m);
-			}
 		}
-		else //t==1//
-		{
-			if (w == 0 || w == 1)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 1, 0, b1, b2 + 1, m) 
-										 									 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
-										 									 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
-										 									 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
-										 									 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
-										 									 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m)
-										 									 + ura[b2][8] * calc(i, t, w + 2, s    , 0, 0, 1, b1, b2 + 1, m);
-			}
-			else //w==2//
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 1, 1, 0, b1, b2 + 1, m) 
-																+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
-																+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
-																+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
-																+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
-																+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m);
-			}
+		else{
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 1, 1, 0, nb1, nb2, m) 
+															+ p[1] * calc(i, t, w    , s + 1 * ds, 1, 0, 1, nb1, nb2, m)
+															+ p[2] * calc(i, t, w    , s + 2 * ds, 0, 1, 0, nb1, nb2, m) 
+															+ p[3] * calc(i, t, w    , s + 2 * ds, 0, 0, 1, nb1, nb2, m)
+															+ p[4] * calc(i, t, w    , s + 3 * ds, 0, 0, 0, nb1, nb2, m) 
+															+ p[5] * calc(i, t, w    , s         , 1, 1, 1, nb1, nb2, m);
 		}
 	}
 
 	// ランナー2,3塁  凡退、単打、二塁打、三塁打、本塁打、四球の順 //
 	else if (r1 == 0 && r2 == 1 && r3 == 1)
 	{
-		if (t == 0){
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1 + 1, b2, m) 
-						+ omote[b1][1] * calc(i, t, w    , s + 2, 1, 0, 0, b1 + 1, b2, m)
-						+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
-						+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
-						+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
-						+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m);	
-		}
-		else //t==1//
-		{								
-			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 0, 1, 1, b1, b2 + 1, m) 
-						+ ura[b2][1] * calc(i, t, w    , s - 2, 1, 0, 0, b1, b2 + 1, m)
-						+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
-						+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
-						+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
-						+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m);
-		}
+		return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 0, 1, 1, nb1, nb2, m) 
+														+ p[1] * calc(i, t, w    , s + 2 * ds, 1, 0, 0, nb1, nb2, m)
+														+ p[2] * calc(i, t, w    , s + 2 * ds, 0, 1, 0, nb1, nb2, m) 
+														+ p[3] * calc(i, t, w    , s + 2 * ds, 0, 0, 1, nb1, nb2, m)
+														+ p[4] * calc(i, t, w    , s + 3 * ds, 0, 0, 0, nb1, nb2, m) 
+														+ p[5] * calc(i, t, w    , s         , 1, 1, 1, nb1, nb2, m);	
 	}
 
 	/*ランナー1,3塁  凡退、単打、二塁打、三塁打、本塁打、四球の順*/
 	else if (r1 == 1 && r2 == 0 && r3 == 1)
 	{
-		if (t == 0){
-			if (w == 0)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, m) 
-										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
-										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
-										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
-										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
-										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m)
-										   + omote[b1][8] * calc(i, t, w + 2, s + 1, 0, 0, 0, b1 + 1, b2, m);
+		if (w == 0)
+		{
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 0, 1, nb1, nb2, m) 
+																     + p[1] * calc(i, t, w    , s + 1 * ds, 1, 0, 1, nb1, nb2, m)
+																     + p[2] * calc(i, t, w    , s + 2 * ds, 0, 1, 0, nb1, nb2, m) 
+										 						     + p[3] * calc(i, t, w    , s + 2 * ds, 0, 0, 1, nb1, nb2, m)
+																     + p[4] * calc(i, t, w    , s + 3 * ds, 0, 0, 0, nb1, nb2, m) 
+																     + p[5] * calc(i, t, w    , s         , 1, 1, 1, nb1, nb2, m)
+										 						     + p[8] * calc(i, t, w + 2, s + 1 * ds, 0, 0, 0, nb1, nb2, m);
 			}
 			else if (w == 1)
 			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0]-omote[b1][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, m) 
-										   + omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
-										   + omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
-										   + omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
-										   + omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
-										   + omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m)
-										   + omote[b1][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1 + 1, b2, m);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 0, 1, nb1, nb2, m) 
+										   								 + p[1] * calc(i, t, w    , s + 1 * ds, 1, 0, 1, nb1, nb2, m)
+										   								 + p[2] * calc(i, t, w    , s + 2 * ds, 0, 1, 0, nb1, nb2, m) 
+										   								 + p[3] * calc(i, t, w    , s + 2 * ds, 0, 0, 1, nb1, nb2, m)
+										   								 + p[4] * calc(i, t, w    , s + 3 * ds, 0, 0, 0, nb1, nb2, m) 
+										   								 + p[5] * calc(i, t, w    , s         , 1, 1, 1, nb1, nb2, m)
+										   								 + p[8] * calc(i, t, w + 2, s         , 0, 0, 0, nb1, nb2, m);
 			}
 			else //w==2//
 			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1 + 1, b2, m) 
-							+ omote[b1][1] * calc(i, t, w    , s + 1, 1, 0, 1, b1 + 1, b2, m)
-							+ omote[b1][2] * calc(i, t, w    , s + 2, 0, 1, 0, b1 + 1, b2, m) 
-							+ omote[b1][3] * calc(i, t, w    , s + 2, 0, 0, 1, b1 + 1, b2, m)
-							+ omote[b1][4] * calc(i, t, w    , s + 3, 0, 0, 0, b1 + 1, b2, m) 
-							+ omote[b1][5] * calc(i, t, w    , s    , 1, 1, 1, b1 + 1, b2, m);
+				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 1, 0, 1, nb1, nb2, m) 
+																+ p[1] * calc(i, t, w    , s + 1 * ds, 1, 0, 1, nb1, nb2, m)
+																+ p[2] * calc(i, t, w    , s + 2 * ds, 0, 1, 0, nb1, nb2, m) 
+																+ p[3] * calc(i, t, w    , s + 2 * ds, 0, 0, 1, nb1, nb2, m)
+																+ p[4] * calc(i, t, w    , s + 3 * ds, 0, 0, 0, nb1, nb2, m) 
+																+ p[5] * calc(i, t, w    , s         , 1, 1, 1, nb1, nb2, m);
 			}
 		}
-		else //t==1//
-		{
-			if (w == 0){
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, m) 
-										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
-										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
-										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
-										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
-										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m)
-										 + ura[b2][8] * calc(i, t, w + 2, s - 1, 0, 0, 0, b1, b2 + 1, m);
-			}
-			else if (w == 1){
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0]-ura[b2][8]) * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, m) 
-										 + ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
-										 + ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
-										 + ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
-										 + ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
-										 + ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m)
-										 + ura[b2][8] * calc(i, t, w + 2, s    , 0, 0, 0, b1, b2 + 1, m);
-			}
-			else //w==2//
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 1, 0, 1, b1, b2 + 1, m) 
-							+ ura[b2][1] * calc(i, t, w    , s - 1, 1, 0, 1, b1, b2 + 1, m)
-							+ ura[b2][2] * calc(i, t, w    , s - 2, 0, 1, 0, b1, b2 + 1, m) 
-							+ ura[b2][3] * calc(i, t, w    , s - 2, 0, 0, 1, b1, b2 + 1, m)
-							+ ura[b2][4] * calc(i, t, w    , s - 3, 0, 0, 0, b1, b2 + 1, m) 
-							+ ura[b2][5] * calc(i, t, w    , s    , 1, 1, 1, b1, b2 + 1, m);
-			}
-		}
-	}
 
 	/*ランナー満塁 凡退、単打、二塁打、三塁打、本塁打、四球の順*/
 	else if (r1 == 1 && r2 == 1 && r3 == 1)
 	{
-		if (t == 0){
-			if (w == 0)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0] - omote[b1][8]) * calc(i, t, w + 1, s    , 1, 1, 1, b1 + 1, b2, m) 
-																		 		 + omote[b1][1] * calc(i, t, w    , s + 2, 1, 0, 1, b1 + 1, b2, m)
-																				 + omote[b1][2] * calc(i, t, w    , s + 3, 0, 1, 0, b1 + 1, b2, m)
-																		    	 + omote[b1][3] * calc(i, t, w    , s + 3, 0, 0, 1, b1 + 1, b2, m)
-																		    	 + omote[b1][4] * calc(i, t, w    , s + 4, 0, 0, 0, b1 + 1, b2, m) 
-																			   	 + omote[b1][5] * calc(i, t, w    , s + 1, 1, 1, 1, b1 + 1, b2, m)
-																				 + omote[b1][8] * calc(i, t, w + 2, s + 1, 0, 1, 1, b1 + 1, b2, m);
-			}
-			else if (w == 1)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (omote[b1][0] - omote[b1][8]) * calc(i, t, w + 1, s    , 1, 1, 1, b1 + 1, b2, m) 
-																		 		 + omote[b1][1] * calc(i, t, w    , s + 2, 1, 0, 1, b1 + 1, b2, m)
-																				 + omote[b1][2] * calc(i, t, w    , s + 3, 0, 1, 0, b1 + 1, b2, m)
-																		    	 + omote[b1][3] * calc(i, t, w    , s + 3, 0, 0, 1, b1 + 1, b2, m)
-																		    	 + omote[b1][4] * calc(i, t, w    , s + 4, 0, 0, 0, b1 + 1, b2, m) 
-																			   	 + omote[b1][5] * calc(i, t, w    , s + 1, 1, 1, 1, b1 + 1, b2, m)
-																				 + omote[b1][8] * calc(i, t, w + 2, s    , 0, 1, 1, b1 + 1, b2, m);
-			}
-			else //w==2//
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = omote[b1][0] * calc(i, t, w + 1, s    , 1, 1, 1, b1 + 1, b2, m) 
-																+ omote[b1][1] * calc(i, t, w    , s + 2, 1, 0, 1, b1 + 1, b2, m)
-																+ omote[b1][2] * calc(i, t, w    , s + 3, 0, 1, 0, b1 + 1, b2, m) 
-																+ omote[b1][3] * calc(i, t, w    , s + 3, 0, 0, 1, b1 + 1, b2, m)
-																+ omote[b1][4] * calc(i, t, w    , s + 4, 0, 0, 0, b1 + 1, b2, m) 
-																+ omote[b1][5] * calc(i, t, w    , s + 1, 1, 1, 1, b1 + 1, b2, m);
-			}
-		}
-		else
+		if (w == 0)
 		{
-			if (w == 0)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0] - ura[b2][8]) * calc(i, t, w + 1, s    , 1, 1, 1, b1, b2 + 1, m) 
-																			   + ura[b2][1] * calc(i, t, w    , s - 2, 1, 0, 1, b1, b2 + 1, m)
-																			   + ura[b2][2] * calc(i, t, w    , s - 3, 0, 1, 0, b1, b2 + 1, m) 
-																			   + ura[b2][3] * calc(i, t, w    , s - 3, 0, 0, 1, b1, b2 + 1, m)
-																			   + ura[b2][4] * calc(i, t, w    , s - 4, 0, 0, 0, b1, b2 + 1, m) 
-																			   + ura[b2][5] * calc(i, t, w    , s - 1, 1, 1, 1, b1, b2 + 1, m)
-																			   + ura[b2][8] * calc(i, t, w + 2, s - 1, 0, 1, 1, b1, b2 + 1, m);
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 1, 1, nb1, nb2, m) 
+																	 + p[1] * calc(i, t, w    , s + 2 * ds, 1, 0, 1, nb1, nb2, m)
+																	 + p[2] * calc(i, t, w    , s + 3 * ds, 0, 1, 0, nb1, nb2, m)
+															    	 + p[3] * calc(i, t, w    , s + 3 * ds, 0, 0, 1, nb1, nb2, m)
+															    	 + p[4] * calc(i, t, w    , s + 4 * ds, 0, 0, 0, nb1, nb2, m) 
+																   	 + p[5] * calc(i, t, w    , s + 1 * ds, 1, 1, 1, nb1, nb2, m)
+																	 + p[8] * calc(i, t, w + 2, s + 1 * ds, 0, 1, 1, nb1, nb2, m);
+		}
+		else if (w == 1)
+		{
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (p[0] - p[8]) * calc(i, t, w + 1, s         , 1, 1, 1, nb1, nb2, m) 
+																	 + p[1] * calc(i, t, w    , s + 2 * ds, 1, 0, 1, nb1, nb2, m)
+																	 + p[2] * calc(i, t, w    , s + 3 * ds, 0, 1, 0, nb1, nb2, m)
+															    	 + p[3] * calc(i, t, w    , s + 3 * ds, 0, 0, 1, nb1, nb2, m)
+															    	 + p[4] * calc(i, t, w    , s + 4 * ds, 0, 0, 0, nb1, nb2, m) 
+																   	 + p[5] * calc(i, t, w    , s + 1 * ds, 1, 1, 1, nb1, nb2, m)
+																	 + p[8] * calc(i, t, w + 2, s         , 0, 1, 1, nb1, nb2, m);
 			}
-			else if (w == 1)
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = (ura[b2][0] - ura[b2][8]) * calc(i, t, w + 1, s    , 1, 1, 1, b1, b2 + 1, m) 
-																			   + ura[b2][1] * calc(i, t, w    , s - 2, 1, 0, 1, b1, b2 + 1, m)
-																			   + ura[b2][2] * calc(i, t, w    , s - 3, 0, 1, 0, b1, b2 + 1, m) 
-																			   + ura[b2][3] * calc(i, t, w    , s - 3, 0, 0, 1, b1, b2 + 1, m)
-																			   + ura[b2][4] * calc(i, t, w    , s - 4, 0, 0, 0, b1, b2 + 1, m) 
-																			   + ura[b2][5] * calc(i, t, w    , s - 1, 1, 1, 1, b1, b2 + 1, m)
-																			   + ura[b2][8] * calc(i, t, w + 2, s    , 0, 1, 1, b1, b2 + 1, m);
-			}
-			else
-			{
-				return table[i][t][w][s][r1][r2][r3][b1][b2][m] = ura[b2][0] * calc(i, t, w + 1, s    , 1, 1, 1, b1, b2 + 1, m) 
-																+ ura[b2][1] * calc(i, t, w    , s - 2, 1, 0, 1, b1, b2 + 1, m)
-																+ ura[b2][2] * calc(i, t, w    , s - 3, 0, 1, 0, b1, b2 + 1, m) 
-																+ ura[b2][3] * calc(i, t, w    , s - 3, 0, 0, 1, b1, b2 + 1, m)
-																+ ura[b2][4] * calc(i, t, w    , s - 4, 0, 0, 0, b1, b2 + 1, m) 
-																+ ura[b2][5] * calc(i, t, w    , s - 1, 1, 1, 1, b1, b2 + 1, m);
-			}
+		else //w==2//
+		{
+			return table[i][t][w][s][r1][r2][r3][b1][b2][m] = p[0] * calc(i, t, w + 1, s         , 1, 1, 1, nb1, nb2, m) 
+															+ p[1] * calc(i, t, w    , s + 2 * ds, 1, 0, 1, nb1, nb2, m)
+															+ p[2] * calc(i, t, w    , s + 3 * ds, 0, 1, 0, nb1, nb2, m) 
+															+ p[3] * calc(i, t, w    , s + 3 * ds, 0, 0, 1, nb1, nb2, m)
+															+ p[4] * calc(i, t, w    , s + 4 * ds, 0, 0, 0, nb1, nb2, m) 
+															+ p[5] * calc(i, t, w    , s + 1 * ds, 1, 1, 1, nb1, nb2, m);
 		}
 	}
 
